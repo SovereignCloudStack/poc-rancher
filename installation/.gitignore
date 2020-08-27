@@ -1,0 +1,4 @@
+#
+kubeone/*.gz
+secure.d/*
+!secure.d/.gitkeep
