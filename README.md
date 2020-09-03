@@ -16,33 +16,66 @@ All relevant steps for a setup and installation is located here. Credentials are
 
 
 
-###  Master Cluster
-
-- Services:
-
-  - 3x Control-Plane Nodes with OS-Flavor `2C-4G-40G`
-  - 3x Worker Nodes with the same OS-Flavor `2C-4G-40G`
-  - 1x Loadbalancer VM is used KubernetesAPI (:6443) and Ingress (:80,:443), Backend Nodes: all Controlplane VM's
-
-- Notes:
-
-  - Beware a OpenStack example, at Betacloud we have more than one Avalabitity Zone (AZ),
-    therefor the terraform HCL must be modified, or the machinedeployment must be set afterwards again!
-  - at Betacloud we have no Loadbalancer-as-a-Service, we use a customized gobetween setup
-
-- Prerequisites:
-
-  This directory use some tool for faster development and onboarding people:
-
-  - [direnv](https://direnv.net/)
-  - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux)
-  - [terraform](https://releases.hashicorp.com/terraform/0.12.29/terraform_0.12.29_linux_amd64.zip)
-  - [yq](https://github.com/mikefarah/yq)
 
 - history and steps:
 
-  ```shell=
-  # This is a Shell
+```
+# all used tools are installed and running
+direnv allow
+
+cd openstack
+
+# create file secrets.d/scs-kubermatic-openrc.sh via gopass
+gopass scs-kubermatic-openrc.sh > ../secure.d/scs-kubermatic-openrc.sh
+
+# enable the secrets for openstack
+source ../secure.d/scs-kubermatic-openrc.sh
+
+# start an ssh-agent add the ssh private-key for the remote-exec step
+# for the password see secrets repo
+eval $(ssh-agent)
+ssh-add ../work/poc-rancher
+
+# start the terraforming
+terraform init 
+terraform plan
+terraform apply -auto-approve
+
+# Create cluster via RKE
+rke up
+
+# check the kubeconfig, set via direnv
+stat $KUBECONFIG
+
+# use the kubernetes-cli aka kubectl to check the cluster
+kubectl get nodes -o wide
+
+# cert-manager
+# create namespace
+kubectl create namespace cert-manager
+
+# add repo
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+# install cert-manager
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version v0.16.1 \
+  --set installCRDs=true
+
+# install rancher
+# add repo
+helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+
+# create namespace
+kubectl create namespace cattle-system
+
+# install
+helm install rancher rancher-latest/rancher \
+  --namespace cattle-system \
+  --set hostname=<IP>.xip.io
 
   ```
 
